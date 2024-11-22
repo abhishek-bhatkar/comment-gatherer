@@ -27,7 +27,8 @@
         "productivity"
     ],
     "activationEvents": [
-        "onStartupFinished"
+        "onStartupFinished",
+        "onView:commentList"
     ],
     "main": "./out/extension.js",
     "contributes": {
@@ -70,7 +71,8 @@
                     "name": "Project Comments",
                     "icon": "$(comment)",
                     "contextualTitle": "Project Comments",
-                    "type": "tree"
+                    "type": "tree",
+                    "visibility": "visible"
                 }
             ]
         },

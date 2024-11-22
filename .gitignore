@@ -13,6 +13,9 @@ dist/
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# VS Code Extension Package
+*.vsix
+
 # Logs
 logs
 *.log
