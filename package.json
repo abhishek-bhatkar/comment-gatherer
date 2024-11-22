@@ -1,0 +1,120 @@
+{
+    "name": "project-comment-gatherer",
+    "displayName": "Project Comment Gatherer",
+    "description": "A powerful VS Code extension that collects, organizes, and displays all comments across your project files",
+    "version": "0.1.0",
+    "publisher": "Abhishek Bhatkar",
+    "author": {
+        "name": "Abhishek Bhatkar"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/abhishekbhatkar/project-comment-gatherer"
+    },
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Other",
+        "Programming Languages",
+        "Formatters"
+    ],
+    "keywords": [
+        "comments",
+        "documentation",
+        "code navigation",
+        "code organization",
+        "productivity"
+    ],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "project-comment-gatherer.gatherComments",
+                "title": "Refresh Comments",
+                "icon": "$(refresh)",
+                "category": "Project Comments"
+            },
+            {
+                "command": "project-comment-gatherer.sortByFile",
+                "title": "Sort by File",
+                "icon": "$(sort-precedence)",
+                "category": "Project Comments"
+            },
+            {
+                "command": "project-comment-gatherer.sortByType",
+                "title": "Sort by Type",
+                "icon": "$(sort-precedence)",
+                "category": "Project Comments"
+            },
+            {
+                "command": "project-comment-gatherer.filterComments",
+                "title": "Filter Comments",
+                "icon": "$(filter)",
+                "category": "Project Comments"
+            },
+            {
+                "command": "project-comment-gatherer.exportComments",
+                "title": "Export Comments",
+                "icon": "$(export)",
+                "category": "Project Comments"
+            }
+        ],
+        "views": {
+            "explorer": [
+                {
+                    "id": "commentList",
+                    "name": "Project Comments",
+                    "icon": "$(comment)",
+                    "contextualTitle": "Project Comments",
+                    "type": "tree"
+                }
+            ]
+        },
+        "menus": {
+            "view/title": [
+                {
+                    "command": "project-comment-gatherer.gatherComments",
+                    "when": "view == commentList",
+                    "group": "navigation"
+                },
+                {
+                    "command": "project-comment-gatherer.filterComments",
+                    "when": "view == commentList",
+                    "group": "1_filtering"
+                },
+                {
+                    "command": "project-comment-gatherer.sortByFile",
+                    "when": "view == commentList",
+                    "group": "2_sorting"
+                },
+                {
+                    "command": "project-comment-gatherer.sortByType",
+                    "when": "view == commentList",
+                    "group": "2_sorting"
+                },
+                {
+                    "command": "project-comment-gatherer.exportComments",
+                    "when": "view == commentList",
+                    "group": "3_export"
+                }
+            ]
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "run-extension": "node ./scripts/runExtension.js"
+    },
+    "devDependencies": {
+        "@types/node": "^16.11.7",
+        "@types/vscode": "^1.85.0",
+        "@vscode/test-electron": "^2.4.1",
+        "typescript": "^4.5.4"
+    },
+    "license": "MIT"
+}
