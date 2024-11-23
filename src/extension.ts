@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import ignore from 'ignore';
 
 interface CommentInfo {
     file: string;
@@ -24,13 +25,56 @@ class CommentTreeProvider implements vscode.TreeDataProvider<CommentNode> {
     private comments: Map<string, CommentInfo[]> = new Map();
     private sortOrder: 'file' | 'type' = 'file';
     private filterText: string = '';
+    private gitIgnore: ReturnType<typeof ignore> | undefined;
 
     constructor() {
+        // Initialize gitignore
+        this.initGitIgnore();
+        
         // Watch for file changes
         const watcher = vscode.workspace.createFileSystemWatcher('**/*.*');
         watcher.onDidChange(() => this.refresh());
         watcher.onDidCreate(() => this.refresh());
         watcher.onDidDelete(() => this.refresh());
+        
+        // Watch for .gitignore changes
+        const gitIgnoreWatcher = vscode.workspace.createFileSystemWatcher('**/.gitignore');
+        gitIgnoreWatcher.onDidChange(() => this.initGitIgnore());
+        gitIgnoreWatcher.onDidCreate(() => this.initGitIgnore());
+        gitIgnoreWatcher.onDidDelete(() => this.initGitIgnore());
+    }
+
+    private initGitIgnore(): void {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            return;
+        }
+
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const gitIgnorePath = path.join(rootPath, '.gitignore');
+
+        if (fs.existsSync(gitIgnorePath)) {
+            const gitIgnoreContent = fs.readFileSync(gitIgnorePath, 'utf8');
+            this.gitIgnore = ignore().add(gitIgnoreContent);
+        } else {
+            this.gitIgnore = undefined;
+        }
+    }
+
+    isFileIgnored(filePath: string): boolean {
+        if (!this.gitIgnore) {
+            return false;
+        }
+
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            return false;
+        }
+
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const relativePath = path.relative(rootPath, filePath);
+        
+        return this.gitIgnore.ignores(relativePath);
     }
 
     refresh(newComments?: CommentInfo[]): void {
@@ -68,9 +112,10 @@ class CommentTreeProvider implements vscode.TreeDataProvider<CommentNode> {
             return Promise.resolve(
                 Array.from(this.comments.entries())
                     .filter(([file, comments]) => 
-                        this.filterText === '' || 
+                        !this.isFileIgnored(file) &&
+                        (this.filterText === '' || 
                         comments.some(c => c.comment.toLowerCase().includes(this.filterText)) ||
-                        file.toLowerCase().includes(this.filterText)
+                        file.toLowerCase().includes(this.filterText))
                     )
                     .map(([file, comments]) => new CommentNode(
                         path.basename(file),
@@ -212,7 +257,9 @@ export async function activate(context: vscode.ExtensionContext) {
                 if (stat.isDirectory() && !file.startsWith('.') && file !== 'node_modules') {
                     findComments(filePath);
                 } else if (stat.isFile() && supportedExtensions.includes(path.extname(filePath).toLowerCase())) {
-                    extractCommentsFromFile(filePath, comments);
+                    if (!commentProvider.isFileIgnored(filePath)) {
+                        extractCommentsFromFile(filePath, comments);
+                    }
                 }
             }
         }
