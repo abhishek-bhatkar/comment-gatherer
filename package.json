@@ -2,7 +2,7 @@
     "name": "project-comment-gatherer",
     "displayName": "Project Comment Gatherer",
     "description": "A powerful VS Code extension that collects, organizes, and displays all comments across your project files",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "publisher": "AbhishekBhatkar",
     "author": {
         "name": "Abhishek Bhatkar"

@@ -24,6 +24,26 @@ Managing and navigating through code comments in large projects can be challengi
 - **Advanced Filtering**: Search and filter comments across your entire project
 - **Export Capability**: Export all comments to a Markdown file for documentation
 
+## Recent Updates
+
+- **.gitignore Support**: The extension now respects your `.gitignore` file, ensuring that ignored files are not processed.
+- **Improved File Filtering**: Enhanced logic to exclude common directories and files, improving performance and relevance.
+- **Custom Icons**: Added custom icons for the Activity Bar view in both light and dark themes.
+- **Removed Report Generator**: Simplified the extension by removing the report generation feature.
+
+## Installation
+
+To install the extension, download it from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/) or clone this repository and build it locally.
+
+To build locally:
+
+```bash
+npm install
+npm run compile
+```
+
+Then, open the project in VS Code and press `F5` to launch the extension in a new VS Code window.
+
 ## Usage
 
 1. Open your project in VS Code
@@ -66,7 +86,9 @@ The extension activates automatically when you open VS Code and provides a clean
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+Contributions are welcome! Please fork the repository and submit a pull request for any improvements or bug fixes.
+
+For major changes, please open an issue first to discuss what you would like to change.
 
 ## License
 
