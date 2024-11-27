@@ -1,95 +1,137 @@
-import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
 import { CommentInfo } from '../types';
 
+type CommentConfig = {
+    single: string;
+    multi: string[];
+    doc: string[];
+};
+
+type LanguageConfigs = {
+    [key: string]: CommentConfig;
+};
+
 export class CommentParser {
-    private static readonly SINGLE_LINE_COMMENT_MARKERS: { [key: string]: string[] } = {
-        'javascript': ['//'],
-        'typescript': ['//'],
-        'python': ['#'],
-        'ruby': ['#'],
-        'php': ['//'],
-        'java': ['//'],
-        'c': ['//'],
-        'cpp': ['//'],
-        'csharp': ['//'],
-        'go': ['//'],
-        'rust': ['//'],
-        'swift': ['//'],
-        'kotlin': ['//', '///'],
+    private static readonly languageConfigs: LanguageConfigs = {
+        'js': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'ts': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'jsx': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'tsx': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'py': { single: '#', multi: ['"""', '"""'], doc: ['"""', '"""'] },
+        'java': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'c': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'cpp': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'php': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'go': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'rs': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'swift': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'kt': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] },
+        'rb': { single: '#', multi: ['=begin', '=end'], doc: ['=begin', '=end'] },
+        'cs': { single: '//', multi: ['/*', '*/'], doc: ['/**', '*/'] }
     };
 
-    private static readonly MULTI_LINE_COMMENT_MARKERS: { [key: string]: { start: string; end: string }[] } = {
-        'javascript': [{ start: '/*', end: '*/' }],
-        'typescript': [{ start: '/*', end: '*/' }],
-        'python': [{ start: '"""', end: '"""' }, { start: "'''", end: "'''" }],
-        'php': [{ start: '/*', end: '*/' }],
-        'java': [{ start: '/*', end: '*/' }],
-        'c': [{ start: '/*', end: '*/' }],
-        'cpp': [{ start: '/*', end: '*/' }],
-        'csharp': [{ start: '/*', end: '*/' }],
-        'go': [{ start: '/*', end: '*/' }],
-        'rust': [{ start: '/*', end: '*/' }],
-        'swift': [{ start: '/*', end: '*/' }],
-        'kotlin': [{ start: '/*', end: '*/' }],
-    };
+    private static readonly ignoredFiles = [
+        '.gitignore',
+        '.npmignore',
+        '.eslintignore',
+        'package-lock.json',
+        'yarn.lock',
+        '.DS_Store',
+        '.env',
+        '.env.local',
+        '.env.development',
+        '.env.test',
+        '.env.production'
+    ];
 
-    private static readonly DOC_COMMENT_MARKERS: { [key: string]: { start: string; end?: string }[] } = {
-        'javascript': [{ start: '/**', end: '*/' }],
-        'typescript': [{ start: '/**', end: '*/' }],
-        'python': [{ start: '"""' }, { start: "'''" }],
-        'java': [{ start: '/**', end: '*/' }],
-        'php': [{ start: '/**', end: '*/' }],
-        'go': [{ start: '//' }],
-        'rust': [{ start: '///' }],
-        'swift': [{ start: '///' }],
-        'kotlin': [{ start: '///' }],
-    };
+    private static readonly ignoredDirectories = [
+        'node_modules',
+        '.git',
+        'dist',
+        'build',
+        'out',
+        'coverage',
+        '.vscode',
+        '.idea',
+        '.vs',
+        'tmp',
+        'temp'
+    ];
 
-    static async parseFile(filePath: string): Promise<CommentInfo[]> {
+    public static async parseFile(filePath: string): Promise<CommentInfo[]> {
         try {
-            const document = await vscode.workspace.openTextDocument(filePath);
-            const fileType = this.getFileType(document);
+            // Check if file should be ignored
+            const fileName = path.basename(filePath);
+            if (this.ignoredFiles.includes(fileName)) {
+                return [];
+            }
+
+            // Check if file is in ignored directory
+            const normalizedPath = filePath.replace(/\\/g, '/');
+            if (this.ignoredDirectories.some(dir => normalizedPath.includes(`/${dir}/`))) {
+                return [];
+            }
+
+            const fileType = path.extname(filePath).slice(1);
+            const config = this.languageConfigs[fileType];
+
+            // Skip files without comment configuration
+            if (!config) {
+                return [];
+            }
+
+            const content = await fs.promises.readFile(filePath, 'utf8');
+            const lines = content.split('\n');
             const comments: CommentInfo[] = [];
-
             let inMultiLineComment = false;
-            let multiLineCommentStart = 0;
-            let currentMultiLineMarker: { start: string; end: string } | undefined;
+            let multiLineStart = 0;
+            let multiLineType: 'multi' | 'doc' = 'multi';
+            let multiLineContent: string[] = [];
 
-            for (let i = 0; i < document.lineCount; i++) {
-                const line = document.lineAt(i).text.trim();
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
 
                 if (!inMultiLineComment) {
                     // Check for single-line comments
-                    const singleLineComment = this.parseSingleLineComment(line, fileType, i, filePath);
-                    if (singleLineComment) {
-                        comments.push(singleLineComment);
+                    if (line.startsWith(config.single)) {
+                        comments.push({
+                            file: filePath,
+                            line: i,
+                            text: line.substring(config.single.length).trim(),
+                            type: 'single',
+                            fileType
+                        });
                         continue;
                     }
 
-                    // Check for start of multi-line comment
-                    const multiLineMarker = this.findMultiLineCommentStart(line, fileType);
-                    if (multiLineMarker) {
+                    // Check for start of multi-line or doc comments
+                    if (line.startsWith(config.doc[0])) {
                         inMultiLineComment = true;
-                        multiLineCommentStart = i;
-                        currentMultiLineMarker = multiLineMarker;
+                        multiLineStart = i;
+                        multiLineType = 'doc';
+                        multiLineContent = [line];
+                    } else if (line.startsWith(config.multi[0])) {
+                        inMultiLineComment = true;
+                        multiLineStart = i;
+                        multiLineType = 'multi';
+                        multiLineContent = [line];
                     }
-                } else if (currentMultiLineMarker) {
+                } else {
+                    multiLineContent.push(line);
+                    
                     // Check for end of multi-line comment
-                    if (line.includes(currentMultiLineMarker.end)) {
-                        const comment = this.extractMultiLineComment(
-                            document,
-                            multiLineCommentStart,
-                            i,
-                            currentMultiLineMarker,
-                            filePath,
-                            fileType
-                        );
-                        if (comment) {
-                            comments.push(comment);
-                        }
+                    const currentConfig = multiLineType === 'doc' ? config.doc : config.multi;
+                    if (line.endsWith(currentConfig[1])) {
                         inMultiLineComment = false;
-                        currentMultiLineMarker = undefined;
+                        comments.push({
+                            file: filePath,
+                            line: multiLineStart,
+                            text: multiLineContent.join('\n'),
+                            type: multiLineType,
+                            fileType
+                        });
+                        multiLineContent = [];
                     }
                 }
             }
@@ -99,89 +141,5 @@ export class CommentParser {
             console.error(`Error parsing file ${filePath}:`, error);
             return [];
         }
-    }
-
-    private static getFileType(document: vscode.TextDocument): string {
-        return document.languageId;
-    }
-
-    private static parseSingleLineComment(
-        line: string,
-        fileType: string,
-        lineNumber: number,
-        filePath: string
-    ): CommentInfo | null {
-        const markers = this.SINGLE_LINE_COMMENT_MARKERS[fileType] || [];
-        
-        for (const marker of markers) {
-            if (line.startsWith(marker)) {
-                const comment = line.substring(marker.length).trim();
-                if (comment) {
-                    return {
-                        file: filePath,
-                        line: lineNumber,
-                        comment,
-                        type: 'single',
-                        fileType
-                    };
-                }
-            }
-        }
-        
-        return null;
-    }
-
-    private static findMultiLineCommentStart(line: string, fileType: string): { start: string; end: string } | undefined {
-        const markers = this.MULTI_LINE_COMMENT_MARKERS[fileType] || [];
-        return markers.find(marker => line.includes(marker.start));
-    }
-
-    private static extractMultiLineComment(
-        document: vscode.TextDocument,
-        startLine: number,
-        endLine: number,
-        marker: { start: string; end: string },
-        filePath: string,
-        fileType: string
-    ): CommentInfo | null {
-        const lines: string[] = [];
-        
-        for (let i = startLine; i <= endLine; i++) {
-            let line = document.lineAt(i).text.trim();
-            
-            if (i === startLine) {
-                line = line.substring(line.indexOf(marker.start) + marker.start.length);
-            }
-            if (i === endLine) {
-                line = line.substring(0, line.indexOf(marker.end));
-            }
-            
-            // Remove common comment markers like * at the start of lines
-            line = line.replace(/^\s*\*\s?/, '');
-            
-            if (line) {
-                lines.push(line);
-            }
-        }
-        
-        const comment = lines.join('\n').trim();
-        if (!comment) {
-            return null;
-        }
-
-        const isDocComment = this.isDocumentationComment(document.lineAt(startLine).text, fileType);
-        
-        return {
-            file: filePath,
-            line: startLine,
-            comment,
-            type: isDocComment ? 'doc' : 'multi',
-            fileType
-        };
-    }
-
-    private static isDocumentationComment(line: string, fileType: string): boolean {
-        const docMarkers = this.DOC_COMMENT_MARKERS[fileType] || [];
-        return docMarkers.some(marker => line.includes(marker.start));
     }
 }

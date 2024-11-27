@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import { CommentTreeProvider } from './providers/CommentTreeProvider';
 import { CommentParser } from './services/CommentParser';
-import { generateMarkdownReport } from './utils/reportGenerator';
 import { CommentInfo, FileStats } from './types';
+import { GitIgnoreManager } from './utils/GitIgnoreManager';
 
 export async function activate(context: vscode.ExtensionContext) {
     const commentTreeProvider = new CommentTreeProvider();
+    const gitIgnoreManager = new GitIgnoreManager();
+    
     const treeView = vscode.window.createTreeView('commentList', {
         treeDataProvider: commentTreeProvider,
         showCollapseAll: true
@@ -18,18 +20,12 @@ export async function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        const progress = await vscode.window.withProgress({
+        await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: "Gathering comments...",
             cancellable: true
         }, async (progress, token) => {
             const allComments: CommentInfo[] = [];
-            const stats: FileStats = {
-                totalComments: 0,
-                singleLineComments: 0,
-                multiLineComments: 0,
-                docComments: 0
-            };
 
             for (const folder of workspaceFolders) {
                 const files = await vscode.workspace.findFiles('**/*.*', '**/node_modules/**');
@@ -39,6 +35,12 @@ export async function activate(context: vscode.ExtensionContext) {
                         return;
                     }
 
+                    // Skip files that are in .gitignore
+                    if (gitIgnoreManager.isFileIgnored(file.fsPath)) {
+                        continue;
+                    }
+
+                    // Skip files that match common ignore patterns
                     if (commentTreeProvider.isFileIgnored(file.fsPath)) {
                         continue;
                     }
@@ -47,37 +49,18 @@ export async function activate(context: vscode.ExtensionContext) {
                     
                     const comments = await CommentParser.parseFile(file.fsPath);
                     allComments.push(...comments);
-                    
-                    // Update stats
-                    comments.forEach(comment => {
-                        stats.totalComments++;
-                        switch (comment.type) {
-                            case 'single':
-                                stats.singleLineComments++;
-                                break;
-                            case 'multi':
-                                stats.multiLineComments++;
-                                break;
-                            case 'doc':
-                                stats.docComments++;
-                                break;
-                        }
-                    });
                 }
             }
 
             commentTreeProvider.refresh(allComments);
-            return stats;
+            
+            const totalComments = allComments.length;
+            if (totalComments > 0) {
+                vscode.window.showInformationMessage(`Found ${totalComments} comments in your project.`);
+            } else {
+                vscode.window.showInformationMessage('No comments found in your project.');
+            }
         });
-
-        if (progress) {
-            const report = generateMarkdownReport(progress);
-            const doc = await vscode.workspace.openTextDocument({
-                content: report,
-                language: 'markdown'
-            });
-            await vscode.window.showTextDocument(doc, { preview: true });
-        }
     });
 
     context.subscriptions.push(

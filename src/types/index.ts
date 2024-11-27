@@ -3,12 +3,12 @@ import * as vscode from 'vscode';
 export interface CommentInfo {
     file: string;
     line: number;
-    comment: string;
+    text: string;
     type: 'single' | 'multi' | 'doc';
     fileType: string;
 }
 
-export interface FileStats {
+export type FileStats = {
     totalComments: number;
     singleLineComments: number;
     multiLineComments: number;
