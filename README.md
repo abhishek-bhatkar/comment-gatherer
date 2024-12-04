@@ -33,9 +33,11 @@ Managing and navigating through code comments in large projects can be challengi
 
 ## Installation
 
-To install the extension, download it from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/) or clone this repository and build it locally.
+To install the extension, you can get it from:
+- [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AbhishekBhatkar.project-comment-gatherer)
+- [Open VSX Registry](https://open-vsx.org/extension/AbhishekBhatkar/project-comment-gatherer)
 
-To build locally:
+Alternatively, you can clone this repository and build it locally:
 
 ```bash
 npm install
